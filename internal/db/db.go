@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 // DB 是我們自己包裝的資料庫結構
@@ -18,7 +18,7 @@ type DB struct {
 // 就像開店之前先把桌椅擺好
 func New(path string) (*DB, error) {
 	// 打開 SQLite 資料庫檔案，如果不存在就自動建立
-	conn, err := sql.Open("sqlite3", path)
+	conn, err := sql.Open("sqlite", path)
 	if err != nil {
 		return nil, fmt.Errorf("開啟資料庫失敗: %w", err)
 	}
