@@ -410,6 +410,16 @@
 
         .badge.pending .badge-dot { animation: pulse 1.5s infinite; }
 
+        .badge.attested {
+            background: rgba(91,156,246,.1);
+            color: var(--blue);
+        }
+
+        .badge.att-pending {
+            background: rgba(90,100,144,.1);
+            color: var(--muted);
+        }
+
         /* ── Empty / Loading / Error ── */
         .state-msg {
             text-align: center;
@@ -529,6 +539,11 @@
 
 <script>
 // ─── Chain config ───────────────────────────────────────────────────────────
+const CHAIN_DOMAIN = {
+    ethereum: 0, avalanche: 1, optimism: 2, arbitrum: 3,
+    solana: 5, base: 6, polygon: 7
+}
+
 const CHAIN_META = {
     ethereum: { label: 'ETH',   color: '#627eea', bg: 'rgba(98,126,234,.12)',  border: 'rgba(98,126,234,.3)'  },
     base:     { label: 'BASE',  color: '#0052ff', bg: 'rgba(0,82,255,.12)',    border: 'rgba(0,82,255,.3)'    },
@@ -549,6 +564,7 @@ function chainBadge(name) {
 // ─── State ──────────────────────────────────────────────────────────────────
 let allTransfers = []
 let currentFilter = 'all'
+const attestCache = {} // sourceTxHash → 'att_pending' | 'attested' | 'error'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function shortenHash(hash) {
@@ -636,6 +652,43 @@ function hashCell(hash, emptyLabel) {
     </div>`
 }
 
+// ─── Attestation ─────────────────────────────────────────────────────────────
+async function fetchAttestation(sourceChain, txHash) {
+    if (attestCache[txHash] !== undefined) return attestCache[txHash]
+    const domain = CHAIN_DOMAIN[sourceChain]
+    if (domain === undefined) return null
+    try {
+        const res = await fetch(`https://iris-api.circle.com/v1/messages/${domain}/${txHash}`)
+        if (!res.ok) { attestCache[txHash] = 'error'; return 'error' }
+        const json = await res.json()
+        const msgs = json.messages
+        if (!msgs || msgs.length === 0) { attestCache[txHash] = 'error'; return 'error' }
+        const att = msgs[0].attestation
+        const result = (att && att !== 'PENDING') ? 'attested' : 'att_pending'
+        attestCache[txHash] = result
+        return result
+    } catch (e) {
+        attestCache[txHash] = 'error'
+        return 'error'
+    }
+}
+
+function attestBadge(state) {
+    if (state === 'attested')
+        return `<span class="badge attested" style="margin-top:4px;font-size:10px"><span class="badge-dot"></span>Attested · Dest Pending</span>`
+    if (state === 'att_pending')
+        return `<span class="badge att-pending" style="margin-top:4px;font-size:10px"><span class="badge-dot"></span>Awaiting Attestation</span>`
+    return ''
+}
+
+async function loadAttestations(pendingTransfers) {
+    await Promise.all(pendingTransfers.map(async t => {
+        const state = await fetchAttestation((t.SourceChain || '').toLowerCase(), t.SourceTxHash)
+        const el = document.getElementById(`attest-${t.SourceTxHash}`)
+        if (el) el.innerHTML = attestBadge(state)
+    }))
+}
+
 // ─── Filter ─────────────────────────────────────────────────────────────────
 function setFilter(f, btn) {
     currentFilter = f
@@ -674,9 +727,13 @@ function renderTable() {
                </div>`
             : '—'
 
+        const cachedAtt = t.Status === 'pending' ? attestCache[t.SourceTxHash] : null
         const status = t.Status === 'completed'
             ? `<span class="badge completed"><span class="badge-dot"></span>Completed</span>`
-            : `<span class="badge pending"><span class="badge-dot"></span>Pending</span>`
+            : `<div style="display:flex;flex-direction:column;align-items:flex-start;gap:2px">
+                <span class="badge pending"><span class="badge-dot"></span>Pending</span>
+                <span id="attest-${t.SourceTxHash}">${cachedAtt ? attestBadge(cachedAtt) : ''}</span>
+               </div>`
 
         return `<tr>
             <td style="color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums">${t.Nonce}</td>
@@ -716,6 +773,9 @@ function renderTable() {
         </thead>
         <tbody>${rows}</tbody>
     </table>`
+
+    const pending = list.filter(t => t.Status === 'pending' && t.SourceTxHash)
+    if (pending.length > 0) loadAttestations(pending)
 }
 
 // ─── Load data ───────────────────────────────────────────────────────────────
