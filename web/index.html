@@ -602,12 +602,25 @@ function showToast(msg) {
 
 // ─── Copy ───────────────────────────────────────────────────────────────────
 function copy(text, btn) {
-    navigator.clipboard.writeText(text).then(() => {
+    const done = () => {
         const orig = btn.innerHTML
         btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`
         showToast('Copied to clipboard')
         setTimeout(() => btn.innerHTML = orig, 1500)
-    })
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(done)
+    } else {
+        // HTTP fallback
+        const el = document.createElement('textarea')
+        el.value = text
+        el.style.cssText = 'position:fixed;opacity:0'
+        document.body.appendChild(el)
+        el.select()
+        document.execCommand('copy')
+        document.body.removeChild(el)
+        done()
+    }
 }
 
 function hashCell(hash, emptyLabel) {
