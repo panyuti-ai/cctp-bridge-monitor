@@ -8,8 +8,6 @@ Monitors all `MessageSent` and `MessageReceived` events across 7 chains simultan
 
 > Dashboard running live at: `http://YOUR_SERVER:8080`
 
-![dashboard preview](https://i.imgur.com/placeholder.png)
-
 ---
 
 ## Supported Chains
