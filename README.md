@@ -6,7 +6,7 @@ Monitors all `MessageSent` and `MessageReceived` events across 7 chains simultan
 
 ## Demo
 
-> Dashboard running live at: `http://YOUR_SERVER:8080`
+> Dashboard running live at: http://139.180.130.184:8080
 
 ---
 
