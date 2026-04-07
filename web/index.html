@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTP Bridge Monitor</title>
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg:        #090b13;
+            --surface:   #111420;
+            --surface2:  #181c2e;
+            --border:    #1f2440;
+            --border2:   #262c4a;
+            --text:      #dde3f5;
+            --muted:     #5a6490;
+            --muted2:    #3a4060;
+
+            --green:     #3ddc84;
+            --green-bg:  rgba(61,220,132,.1);
+            --yellow:    #f5c542;
+            --yellow-bg: rgba(245,197,66,.1);
+            --blue:      #5b9cf6;
+            --blue-bg:   rgba(91,156,246,.1);
+            --red:       #f87171;
+
+            /* chain colours */
+            --eth:  #627eea;
+            --base: #0052ff;
+            --avax: #e84142;
+            --op:   #ff0420;
+            --matic:#8247e5;
+            --arb:  #28a0f0;
+            --sol:  #9945ff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* ── Header ── */
+        header {
+            padding: 20px 32px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--surface);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, #2775ca, #5b9cf6);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 800; color: #fff;
+        }
+
+        .logo h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .logo p {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 1px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .live-dot {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .live-dot::before {
+            content: '';
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .4; }
+        }
+
+        #last-updated {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .refresh-btn {
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            color: var(--text);
+            padding: 7px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background .15s;
+            display: flex; align-items: center; gap: 6px;
+        }
+
+        .refresh-btn:hover { background: var(--border); }
+
+        .refresh-btn svg {
+            width: 14px; height: 14px;
+            transition: transform .4s;
+        }
+
+        .refresh-btn.spinning svg { transform: rotate(360deg); }
+
+        /* ── Main layout ── */
+        main { padding: 28px 32px; max-width: 1600px; margin: 0 auto; }
+
+        /* ── Stats grid ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 20px 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: var(--accent, var(--blue));
+            opacity: .6;
+        }
+
+        .stat-card.green  { --accent: var(--green); }
+        .stat-card.yellow { --accent: var(--yellow); }
+        .stat-card.blue   { --accent: var(--blue); }
+        .stat-card.purple { --accent: var(--sol); }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .stat-sub {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 6px;
+        }
+
+        /* ── Filter bar ── */
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            color: var(--muted);
+            margin-right: 4px;
+        }
+
+        .filter-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 5px 12px;
+            border-radius: 99px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all .15s;
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: var(--blue-bg);
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        .filter-btn.status-completed.active {
+            background: var(--green-bg);
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .filter-btn.status-pending.active {
+            background: var(--yellow-bg);
+            border-color: var(--yellow);
+            color: var(--yellow);
+        }
+
+        /* ── Table ── */
+        .table-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .table-toolbar {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-toolbar h2 {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        #row-count {
+            font-size: 12px;
+            color: var(--muted);
+            margin-left: 8px;
+            font-weight: 400;
+        }
+
+        .table-wrap { overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 860px;
+        }
+
+        th {
+            text-align: left;
+            padding: 11px 18px;
+            font-size: 11px;
+            color: var(--muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 13px 18px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tr:last-child td { border-bottom: none; }
+
+        tr:hover td { background: var(--surface2); }
+
+        /* ── Chain badge ── */
+        .chain-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 9px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            background: var(--c-bg, rgba(91,156,246,.12));
+            color: var(--c, var(--blue));
+            border: 1px solid var(--c-border, rgba(91,156,246,.25));
+        }
+
+        .chain-badge .dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* ── Route arrow ── */
+        .route {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .route-arrow {
+            color: var(--muted2);
+            font-size: 14px;
+        }
+
+        /* ── Hash cell ── */
+        .hash-cell {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .hash {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            color: var(--blue);
+            cursor: pointer;
+            transition: color .15s;
+        }
+
+        .hash:hover { color: #8cb8ff; }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--muted2);
+            cursor: pointer;
+            padding: 2px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            transition: color .15s;
+            flex-shrink: 0;
+        }
+
+        .copy-btn:hover { color: var(--text); }
+
+        .copy-btn svg { width: 13px; height: 13px; }
+
+        /* ── Amount ── */
+        .amount {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .amount-sub {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        /* ── Time ── */
+        .time-main { color: var(--text); }
+        .time-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+        /* ── Duration ── */
+        .duration {
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+        }
+
+        /* ── Status badge ── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 99px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge.completed {
+            background: var(--green-bg);
+            color: var(--green);
+        }
+
+        .badge.pending {
+            background: var(--yellow-bg);
+            color: var(--yellow);
+        }
+
+        .badge-dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .badge.pending .badge-dot { animation: pulse 1.5s infinite; }
+
+        /* ── Empty / Loading / Error ── */
+        .state-msg {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
+
+        .state-msg .icon { font-size: 32px; margin-bottom: 12px; }
+        .state-msg p { font-size: 14px; }
+        .state-msg.error p { color: var(--red); }
+
+        /* ── Toast ── */
+        #toast {
+            position: fixed;
+            bottom: 24px; right: 24px;
+            background: var(--surface2);
+            border: 1px solid var(--border2);
+            color: var(--green);
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity .2s, transform .2s;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        #toast.show { opacity: 1; transform: translateY(0); }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            header { padding: 16px 20px; }
+            main   { padding: 20px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 540px) {
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .stat-value { font-size: 26px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">
+        <div>
+            <h1 style="display:flex;align-items:center;gap:10px;">
+    <img src="https://assets.coingecko.com/coins/images/6319/small/usdc.png" 
+         style="width:32px;height:32px;border-radius:50%;">
+    CCTP Bridge Monitor
+</h1>
+            <p>Circle Cross-Chain Transfer Protocol</p>
+        </div>
+    </div>
+    <div class="header-right">
+        <div class="live-dot">Live</div>
+        <span id="last-updated"></span>
+        <button class="refresh-btn" id="refresh-btn" onclick="loadData(true)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 4v6h6M23 20v-6h-6"/>
+                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+            </svg>
+            Refresh
+        </button>
+    </div>
+</header>
+
+<main>
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card blue">
+            <div class="stat-label">Total Transfers</div>
+            <div class="stat-value" id="stat-total">—</div>
+            <div class="stat-sub">All records</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-label">Completed</div>
+            <div class="stat-value" id="stat-completed">—</div>
+            <div class="stat-sub">Both ends confirmed</div>
+        </div>
+        <div class="stat-card yellow">
+            <div class="stat-label">Pending</div>
+            <div class="stat-value" id="stat-pending">—</div>
+            <div class="stat-sub">Awaiting destination</div>
+        </div>
+        <div class="stat-card purple">
+            <div class="stat-label">Avg. Completion</div>
+            <div class="stat-value" id="stat-avg">—</div>
+            <div class="stat-sub">Completed transfers</div>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="filter-bar">
+        <span class="filter-label">Status:</span>
+        <button class="filter-btn active" data-filter="all"        onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn status-completed" data-filter="completed" onclick="setFilter('completed',this)">Completed</button>
+        <button class="filter-btn status-pending"   data-filter="pending"   onclick="setFilter('pending',this)">Pending</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+        <div class="table-toolbar">
+            <h2>Transfers <span id="row-count"></span></h2>
+        </div>
+        <div class="table-wrap">
+            <div id="table-content">
+                <div class="state-msg"><div class="icon">⏳</div><p>Loading...</p></div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+// ─── Chain config ───────────────────────────────────────────────────────────
+const CHAIN_META = {
+    ethereum: { label: 'ETH',   color: '#627eea', bg: 'rgba(98,126,234,.12)',  border: 'rgba(98,126,234,.3)'  },
+    base:     { label: 'BASE',  color: '#0052ff', bg: 'rgba(0,82,255,.12)',    border: 'rgba(0,82,255,.3)'    },
+    avalanche:{ label: 'AVAX',  color: '#e84142', bg: 'rgba(232,65,66,.12)',   border: 'rgba(232,65,66,.3)'   },
+    optimism: { label: 'OP',    color: '#ff0420', bg: 'rgba(255,4,32,.12)',    border: 'rgba(255,4,32,.3)'    },
+    polygon:  { label: 'POL',   color: '#8247e5', bg: 'rgba(130,71,229,.12)',  border: 'rgba(130,71,229,.3)'  },
+    arbitrum: { label: 'ARB',   color: '#28a0f0', bg: 'rgba(40,160,240,.12)',  border: 'rgba(40,160,240,.3)'  },
+    solana:   { label: 'SOL',   color: '#9945ff', bg: 'rgba(153,69,255,.12)',  border: 'rgba(153,69,255,.3)'  },
+}
+
+function chainBadge(name) {
+    const m = CHAIN_META[name] || { label: name.toUpperCase(), color: '#5a6490', bg: 'rgba(90,100,144,.12)', border: 'rgba(90,100,144,.3)' }
+    return `<span class="chain-badge" style="--c:${m.color};--c-bg:${m.bg};--c-border:${m.border}">
+        <span class="dot"></span>${m.label}
+    </span>`
+}
+
+// ─── State ──────────────────────────────────────────────────────────────────
+let allTransfers = []
+let currentFilter = 'all'
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+function shortenHash(hash) {
+    if (!hash) return '—'
+    return hash.slice(0, 8) + '…' + hash.slice(-6)
+}
+
+function formatAmount(raw) {
+    if (!raw || raw === '0') return '—'
+    const n = Number(raw) / 1_000_000
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function formatDuration(sec) {
+    if (!sec || sec === 0) return '—'
+    if (sec < 60)  return `${Math.round(sec)}s`
+    if (sec < 3600) {
+        const m = Math.floor(sec / 60), s = Math.round(sec % 60)
+        return s > 0 ? `${m}m ${s}s` : `${m}m`
+    }
+    const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60)
+    return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
+function formatTime(iso) {
+    if (!iso) return { main: '—', sub: '' }
+    const d = new Date(iso)
+    const main = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+    const sub  = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return { main, sub }
+}
+
+function relativeTime(iso) {
+    if (!iso) return ''
+    const diff = Math.round((Date.now() - new Date(iso)) / 1000)
+    if (diff < 60)   return `${diff}s ago`
+    if (diff < 3600) return `${Math.round(diff/60)}m ago`
+    if (diff < 86400)return `${Math.round(diff/3600)}h ago`
+    return `${Math.round(diff/86400)}d ago`
+}
+
+// ─── Toast ──────────────────────────────────────────────────────────────────
+let toastTimer
+function showToast(msg) {
+    const el = document.getElementById('toast')
+    el.textContent = msg
+    el.classList.add('show')
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => el.classList.remove('show'), 2000)
+}
+
+// ─── Copy ───────────────────────────────────────────────────────────────────
+function copy(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.innerHTML
+        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="#3ddc84" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`
+        showToast('Copied to clipboard')
+        setTimeout(() => btn.innerHTML = orig, 1500)
+    })
+}
+
+function hashCell(hash, emptyLabel) {
+    if (!hash) return `<span style="color:var(--muted2)">${emptyLabel || '—'}</span>`
+    return `<div class="hash-cell">
+        <span class="hash" title="${hash}">${shortenHash(hash)}</span>
+        <button class="copy-btn" onclick="copy('${hash}', this)" title="Copy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+        </button>
+    </div>`
+}
+
+// ─── Filter ─────────────────────────────────────────────────────────────────
+function setFilter(f, btn) {
+    currentFilter = f
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+    renderTable()
+}
+
+// ─── Render ─────────────────────────────────────────────────────────────────
+function renderTable() {
+    const list = currentFilter === 'all'
+        ? allTransfers
+        : allTransfers.filter(t => t.Status === currentFilter)
+
+    const container = document.getElementById('table-content')
+    const countEl   = document.getElementById('row-count')
+
+    if (!list || list.length === 0) {
+        countEl.textContent = ''
+        container.innerHTML = `<div class="state-msg"><div class="icon">📭</div><p>No records found</p></div>`
+        return
+    }
+
+    countEl.textContent = `(${list.length})`
+
+    const rows = list.map(t => {
+        const sent = formatTime(t.SentAt)
+        const srcChain = (t.SourceChain || '').toLowerCase()
+        const dstChain = (t.DestChain   || '').toLowerCase()
+
+        const route = srcChain
+            ? `<div class="route">
+                ${chainBadge(srcChain)}
+                <span class="route-arrow">→</span>
+                ${dstChain ? chainBadge(dstChain) : '<span style="color:var(--muted2);font-size:12px">pending</span>'}
+               </div>`
+            : '—'
+
+        const status = t.Status === 'completed'
+            ? `<span class="badge completed"><span class="badge-dot"></span>Completed</span>`
+            : `<span class="badge pending"><span class="badge-dot"></span>Pending</span>`
+
+        return `<tr>
+            <td style="color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums">${t.Nonce}</td>
+            <td>${route}</td>
+            <td>
+                <div class="amount">${formatAmount(t.Amount)} <span style="font-size:11px;color:var(--muted);font-weight:400">USDC</span></div>
+            </td>
+            <td>
+                ${hashCell(t.SourceTxHash)}
+            </td>
+            <td>
+                ${hashCell(t.DestTxHash, 'Pending')}
+            </td>
+            <td>
+                <div class="time-main">${sent.main}</div>
+                <div class="time-sub">${sent.sub} · ${relativeTime(t.SentAt)}</div>
+            </td>
+            <td>
+                <span class="duration">${formatDuration(t.DurationSeconds)}</span>
+            </td>
+            <td>${status}</td>
+        </tr>`
+    }).join('')
+
+    container.innerHTML = `<table>
+        <thead>
+            <tr>
+                <th>Nonce</th>
+                <th>Route</th>
+                <th>Amount</th>
+                <th>Source TX</th>
+                <th>Dest TX</th>
+                <th>Sent At</th>
+                <th>Duration</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+    </table>`
+}
+
+// ─── Load data ───────────────────────────────────────────────────────────────
+async function loadStats() {
+    try {
+        const res  = await fetch('/api/stats')
+        const json = await res.json()
+        const d    = json.data
+        document.getElementById('stat-total').textContent     = d.total     ?? '—'
+        document.getElementById('stat-completed').textContent = d.completed ?? '—'
+        document.getElementById('stat-pending').textContent   = d.pending   ?? '—'
+        document.getElementById('stat-avg').textContent       = formatDuration(d.avg_duration_seconds)
+    } catch (e) {
+        console.error('loadStats failed', e)
+    }
+}
+
+async function loadTransfers() {
+    try {
+        const res  = await fetch('/api/transfers')
+        const json = await res.json()
+        allTransfers = json.data || []
+        renderTable()
+    } catch (e) {
+        document.getElementById('table-content').innerHTML =
+            `<div class="state-msg error"><div class="icon">⚠️</div><p>Failed to load. Is the server running?</p></div>`
+    }
+}
+
+async function loadData(manual = false) {
+    const btn = document.getElementById('refresh-btn')
+    btn.classList.add('spinning')
+
+    await Promise.all([loadStats(), loadTransfers()])
+
+    const now = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    document.getElementById('last-updated').textContent = `Updated ${now}`
+
+    btn.classList.remove('spinning')
+    if (manual) showToast('Refreshed')
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+loadData()
+setInterval(loadData, 30_000)
+</script>
+</body>
+</html>
